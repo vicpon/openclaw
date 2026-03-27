@@ -171,12 +171,22 @@ export async function monitorWebInbox(options: {
       }
 
       const group = isJidGroup(remoteJid) === true;
+      
+      // Dedupe check: must happen synchronously before any async work
+      // to prevent race conditions when baileys fires multiple events
+      // for the same message in rapid succession.
       if (id) {
         const dedupeKey = `${options.accountId}:${remoteJid}:${id}`;
         if (isRecentInboundMessage(dedupeKey)) {
+          if (shouldLogVerbose()) {
+            logVerbose(`[dedupe] Skipping duplicate message ${id} from ${remoteJid}`);
+          }
           continue;
         }
+      } else if (shouldLogVerbose()) {
+        logVerbose(`[dedupe] Warning: message from ${remoteJid} has no ID, cannot dedupe`);
       }
+      
       const participantJid = msg.key?.participant ?? undefined;
       const from = group ? remoteJid : await resolveInboundJid(remoteJid);
       if (!from) {
